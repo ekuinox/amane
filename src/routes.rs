@@ -1,20 +1,21 @@
 use actix_web::{Responder, get, put, web, HttpResponse};
 use actix_multipart::Multipart;
+use sha2::{Sha256, Digest};
 
 // ファイルの保存先ディレクトリ
 const TARGET_DIRECTORY: &'static str = "./tmp";
 
 /// ファイルのパスを取得する
 fn get_path(key: &String) -> String {
-    format!(
-        "{}/{}",
-        TARGET_DIRECTORY,
-        sanitize_filename::sanitize(&key)
-    )
+    let mut hasher = Sha256::new();
+    hasher.update(sanitize_filename::sanitize(key));
+    let key = hasher.finalize();
+    let key = key.iter().map(|c| format!("{:02x}", c)).collect::<String>();
+    format!("{}/{}", TARGET_DIRECTORY, key)
 }
 
 /// ファイルを取得するAPI
-#[get("/{bucket_name}/{key}")]
+#[get("/{bucket_name}/{key:.*}")]
 async fn get_file(web::Path((_bucket_name, key)): web::Path<(String, String)>) -> impl Responder {
     use std::io::Read;
     let filepath = get_path(&key);
@@ -33,7 +34,7 @@ async fn get_file(web::Path((_bucket_name, key)): web::Path<(String, String)>) -
 }
 
 /// ファイルを更新するAPI
-#[put("/{bucket_name}/{key}")]
+#[put("/{bucket_name}/{key:.*}")]
 async fn put_file(mut payload: Multipart, web::Path((_bucket_name, key)): web::Path<(String, String)>) -> impl Responder {
     use futures::{StreamExt, TryStreamExt};
     while let Ok(Some(mut field)) = payload.try_next().await {
