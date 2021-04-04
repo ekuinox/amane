@@ -1,4 +1,4 @@
-use actix_web::{Responder, get, put, web, HttpResponse};
+use actix_web::{Responder, get, put, delete, web, HttpResponse};
 use actix_multipart::Multipart;
 use sha2::{Sha256, Digest};
 
@@ -24,6 +24,7 @@ async fn get_file(web::Path((_bucket_name, key)): web::Path<(String, String)>) -
         Err(_) => return HttpResponse::NotFound().finish(),
     };
     let mut bytes: Vec<u8> = vec![];
+    // これ重いんじゃないか???
     for byte in file.bytes() {
         match byte {
             Ok(byte) => bytes.push(byte),
@@ -60,4 +61,13 @@ async fn put_file(mut payload: Multipart, web::Path((_bucket_name, key)): web::P
     }
     // 別に Ok とは限らないが...
     HttpResponse::Ok().finish()
+}
+
+#[delete("/{bucket_name}/{key:.*}")]
+async fn delete_file(web::Path((_bucket_name, key)): web::Path<(String, String)>) -> impl Responder {
+    let filepath = get_path(&key);
+    match web::block(|| std::fs::remove_file(filepath)).await {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(_) => return HttpResponse::NotFound().finish(),
+    }
 }

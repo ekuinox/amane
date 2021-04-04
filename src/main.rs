@@ -8,6 +8,7 @@ async fn main() -> anyhow::Result<()> {
     HttpServer::new(|| App::new()
         .service(put_file)
         .service(get_file)
+        .service(delete_file)
     )
         .bind("0.0.0.0:8080")?
         .run()
