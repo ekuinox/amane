@@ -1,17 +1,43 @@
 mod routes;
+mod state;
 
 use actix_web::{App, HttpServer};
 use routes::*;
+use state::AppState;
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    HttpServer::new(|| App::new()
+    let matches = clap::App::new(clap::crate_name!())
+        .args(&[
+            clap::Arg::with_name("bind")
+                .takes_value(true)
+                .short("b"),
+            clap::Arg::with_name("directory")
+                .takes_value(true)
+                .short("d")
+        ])
+        .get_matches();
+    let state = AppState {
+        data_directory: matches
+            .value_of("directory")
+            .unwrap_or("./tmp")
+            .to_string(),
+    };
+
+    let server = HttpServer::new(move || App::new()
+        .data(state.clone())
         .service(put_file)
         .service(get_file)
         .service(delete_file)
-    )
-        .bind("0.0.0.0:8080")?
+    );
+
+    server
+        .bind(matches
+            .value_of("bind")
+            .unwrap_or("0.0.0.0:8080")
+        )?
         .run()
         .await?;
+
     Ok(())
 }
