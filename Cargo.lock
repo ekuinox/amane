@@ -305,6 +305,7 @@ dependencies = [
  "futures",
  "sanitize-filename",
  "sha2",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate anyhow;
+
+mod bucket;
 mod routes;
 mod state;
 

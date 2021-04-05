@@ -1,23 +1,7 @@
-use actix_web::{Responder, get, put, delete, web, HttpResponse};
+use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put, web};
 use actix_multipart::Multipart;
-use sha2::{Sha256, Digest};
 use crate::state::AppState;
-
-/// 文字列をハッシュ化して16進数文字列にする
-fn get_hex(value: &String) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(sanitize_filename::sanitize(value));
-    let hashed = hasher.finalize();
-    hashed.iter().map(|c| format!("{:02x}", c)).collect()
-}
-
-/// ファイルのパスを取得する
-fn get_path(data_directory: &String, bucket_name: &String, key: &String) -> String {
-    let bucket_name = get_hex(bucket_name);
-    let key = get_hex(key);
-    // とりあえずアンスコで繋げているが良いとは思えない...
-    format!("{}/{}_{}", data_directory, bucket_name, key)
-}
+use crate::{bucket, bucket::BucketError};
 
 /// ファイルを取得するAPI
 #[get("/{bucket_name}/{key:.*}")]
@@ -25,17 +9,16 @@ async fn get_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
-    use std::io::Read;
-    let filepath = get_path(&data.data_directory, &bucket_name, &key);
-    let mut file = match web::block(|| std::fs::File::open(filepath)).await {
-        Ok(f) => f,
-        Err(_) => return HttpResponse::NotFound().finish(),
-    };
-    let mut bytes = Vec::new();
-    if let Err(_) = file.read_to_end(&mut bytes) {
-        return HttpResponse::InternalServerError().finish();
+    match web::block(move || bucket::get_file_as_bytes(data.data_directory.clone(), bucket_name, key)).await {
+        Ok(bytes) => HttpResponse::Ok().body(bytes),
+        Err(BlockingError::Error(err)) => {
+            match err.downcast_ref::<BucketError>() {
+                Some(BucketError::NotFound) => HttpResponse::NotFound().finish(),
+                _ => HttpResponse::InternalServerError().finish(),
+            }
+        },
+        _ => HttpResponse::InternalServerError().finish()
     }
-    HttpResponse::Ok().body(bytes)
 }
 
 /// ファイルを更新するAPI
@@ -45,9 +28,11 @@ async fn put_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
+    // ここも bucket に良い具合にわけられたら良いんですが...
+    // route から直接 bucket に行っているのも変な気はするが...
     use futures::{StreamExt, TryStreamExt};
     while let Ok(Some(mut field)) = payload.try_next().await {
-        let filepath = get_path(&data.data_directory, &bucket_name, &key);
+        let filepath = bucket::get_path(&data.data_directory, &bucket_name, &key);
         // File::create is blocking operation, use threadpool
         let mut f = web::block(|| std::fs::File::create(filepath))
             .await
@@ -75,9 +60,14 @@ async fn delete_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
-    let filepath = get_path(&data.data_directory, &bucket_name, &key);
-    match web::block(|| std::fs::remove_file(filepath)).await {
+    match web::block(move || bucket::delete_file(data.data_directory.clone(), bucket_name, key)).await {
         Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => return HttpResponse::NotFound().finish(),
+        Err(BlockingError::Error(err)) => {
+            match err.downcast_ref::<BucketError>() {
+                Some(BucketError::NotFound) => HttpResponse::NotFound().finish(),
+                _ => HttpResponse::InternalServerError().finish(),
+            }
+        },
+        _ => HttpResponse::InternalServerError().finish(),
     }
 }
