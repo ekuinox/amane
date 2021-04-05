@@ -27,17 +27,13 @@ async fn get_file(
 ) -> impl Responder {
     use std::io::Read;
     let filepath = get_path(&data.data_directory, &bucket_name, &key);
-    let file = match web::block(|| std::fs::File::open(filepath)).await {
+    let mut file = match web::block(|| std::fs::File::open(filepath)).await {
         Ok(f) => f,
         Err(_) => return HttpResponse::NotFound().finish(),
     };
-    let mut bytes: Vec<u8> = vec![];
-    // これ重いんじゃないか???
-    for byte in file.bytes() {
-        match byte {
-            Ok(byte) => bytes.push(byte),
-            Err(_) => return HttpResponse::InternalServerError().finish(),
-        }
+    let mut bytes = Vec::new();
+    if let Err(_) = file.read_to_end(&mut bytes) {
+        return HttpResponse::InternalServerError().finish();
     }
     HttpResponse::Ok().body(bytes)
 }
