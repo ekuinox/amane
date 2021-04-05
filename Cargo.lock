@@ -295,6 +295,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "amane"
+version = "0.1.0"
+dependencies = [
+ "actix-multipart",
+ "actix-web",
+ "anyhow",
+ "clap",
+ "futures",
+ "sanitize-filename",
+ "sha2",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1262,19 +1275,6 @@ checksum = "23fd0fec94ec480abfd86bb8f4f6c57e0efb36dac5c852add176ea7b04c74801"
 dependencies = [
  "lazy_static",
  "regex",
-]
-
-[[package]]
-name = "savage"
-version = "0.1.0"
-dependencies = [
- "actix-multipart",
- "actix-web",
- "anyhow",
- "clap",
- "futures",
- "sanitize-filename",
- "sha2",
 ]
 
 [[package]]
