@@ -2,6 +2,7 @@ use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put,
 use actix_multipart::Multipart;
 use crate::state::AppState;
 use crate::{bucket, bucket::BucketError};
+use super::response::*;
 
 /// ファイルを取得するAPI
 #[get("/{bucket_name}/{key:.*}")]
@@ -13,8 +14,10 @@ async fn get_file(
         Ok(bytes) => HttpResponse::Ok().body(bytes),
         Err(BlockingError::Error(err)) => {
             match err.downcast_ref::<BucketError>() {
-                Some(BucketError::NotFound) => HttpResponse::NotFound().finish(),
-                _ => HttpResponse::InternalServerError().finish(),
+                Some(BucketError::NotFound) => HttpResponse::NotFound()
+                    .json(Response::from(Error { message: format!("Not Found") })),
+                _ => HttpResponse::InternalServerError()
+                    .json(Response::from(Error { message: format!("Internal Server Error") })),
             }
         },
         _ => HttpResponse::InternalServerError().finish()

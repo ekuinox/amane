@@ -1,12 +1,12 @@
 #[macro_use]
 extern crate anyhow;
 
+mod http;
 mod bucket;
-mod routes;
 mod state;
 
 use actix_web::{App, HttpServer};
-use routes::*;
+use http::routes::*;
 use state::AppState;
 
 #[actix_web::main]

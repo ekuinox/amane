@@ -304,6 +304,7 @@ dependencies = [
  "clap",
  "futures",
  "sanitize-filename",
+ "serde",
  "sha2",
  "thiserror",
 ]
