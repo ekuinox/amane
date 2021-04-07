@@ -3,7 +3,7 @@ use serde::Serialize;
 #[derive(Serialize)]
 pub struct Response<T: Serialize> {
     pub ok: bool,
-    pub  data: T,
+    pub data: T,
 }
 
 #[derive(Serialize)]
