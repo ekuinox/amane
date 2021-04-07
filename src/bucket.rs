@@ -19,8 +19,7 @@ fn get_hex(value: &String) -> String {
 }
 
 /// ファイルのパスを取得する
-/// pub を外したい
-pub fn get_path(data_directory: &String, bucket_name: &String, key: &String) -> String {
+fn get_path(data_directory: &String, bucket_name: &String, key: &String) -> String {
     let bucket_name = get_hex(bucket_name);
     let key = get_hex(key);
     // とりあえずアンスコで繋げているが良いとは思えない...
@@ -54,6 +53,17 @@ pub fn delete_file(directory: String, bucket_name: String, key: String) -> Resul
                 BucketError::Internal
             }
         ));
+    }
+    Ok(())
+}
+
+/// ファイルを保存する
+pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<u8>) -> Result<()> {
+    let filepath = get_path(&directory, &bucket_name, &key);
+    let mut file = std::fs::File::create(filepath)?;
+    use std::io::Write;
+    if file.write_all(&bytes).is_err() {
+        return Err(anyhow!(BucketError::Internal));
     }
     Ok(())
 }

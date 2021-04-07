@@ -31,31 +31,44 @@ async fn put_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
-    // ここも bucket に良い具合にわけられたら良いんですが...
-    // route から直接 bucket に行っているのも変な気はするが...
-    use futures::{StreamExt, TryStreamExt};
-    while let Ok(Some(mut field)) = payload.try_next().await {
-        let filepath = bucket::get_path(&data.data_directory, &bucket_name, &key);
-        // File::create is blocking operation, use threadpool
-        let mut f = web::block(|| std::fs::File::create(filepath))
-            .await
-            .unwrap();
+    // アップロードする際のフィールドの名前
+    const FILE_FIELD_NAME: &'static str = "file";
 
-        // Field in turn is stream of *Bytes* object
-        while let Some(chunk) = field.next().await {
-            use std::io::Write;
-            let data = chunk.unwrap();
-            // filesystem operations are blocking, we have to use threadpool
-            match web::block(move || f.write_all(&data).map(|_| f)).await {
-                Ok(a) => { f = a; },
-                Err(_) => {
-                    return HttpResponse::InternalServerError().finish();
-                },
-            }
+    use futures::{StreamExt, TryStreamExt};
+    while let Ok(Some(field)) = payload.try_next().await {
+        let content_disposition = match field.content_disposition() {
+            Some(c) => c,
+            _ => continue,
+        };
+
+        // フィールド名が予期していないものは次のループに飛ばす
+        if content_disposition
+            .get_name()
+            .map(|name| name != FILE_FIELD_NAME)
+            .unwrap_or(false) {
+            continue;
         }
+
+        // チャンクを全てくっつけて一つの Vec<u8> にする
+        let chunks = field
+            .collect::<Vec<_>>()
+            .await
+            .iter()
+            .flatten()
+            .map(|c| c.to_vec())
+            .flatten()
+            .collect::<Vec<_>>();
+
+        // ファイルを保存する
+        return match web::block(move || bucket::put_file(data.data_directory.clone(), bucket_name, key, chunks)).await {
+            Ok(_) => HttpResponse::Ok().finish(),
+            Err(_) => HttpResponse::InternalServerError().finish(),
+        };
     }
-    // 別に Ok とは限らないが...
-    HttpResponse::Ok().finish()
+
+    // ここに到達したということは、何もアップロードできていないということだと思うので...
+    HttpResponse::BadRequest()
+        .json(Response::from(Error { message: format!("Bad Request") }))
 }
 
 #[delete("/{bucket_name}/{key:.*}")]
