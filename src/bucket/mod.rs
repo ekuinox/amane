@@ -1,4 +1,7 @@
+mod attributes;
+
 use anyhow::Result;
+use attributes::Attributes;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
 
@@ -65,5 +68,7 @@ pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<
     if file.write_all(&bytes).is_err() {
         return Err(anyhow!(BucketError::Internal));
     }
+    // とりあえずファイル作っとくだけ...
+    let _ = Attributes::get_or_create(directory, bucket_name, key)?;
     Ok(())
 }

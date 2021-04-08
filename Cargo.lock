@@ -306,6 +306,7 @@ dependencies = [
  "regex",
  "sanitize-filename",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror",
 ]
