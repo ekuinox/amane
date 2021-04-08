@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
@@ -7,7 +7,7 @@ use anyhow::Result;
 pub struct Attributes {
     bucket: String,
     name: String,
-    children: Vec<String>,
+    children: HashSet<String>,
     meta: HashMap<String, String>,
 }
 
@@ -16,7 +16,7 @@ impl Attributes {
         Attributes {
             bucket,
             name,
-            children: vec![],
+            children: HashSet::new(),
             meta: HashMap::new(),
         }
     }
@@ -27,9 +27,9 @@ impl Attributes {
     }
 
     /// save meta
-    pub fn save(&self, directory: String, bucket: String) -> Result<()> {
+    pub fn save(&self, directory: String) -> Result<()> {
         use std::io::Write;
-        let path = Self::get_path(directory, bucket, self.name.clone());
+        let path = Self::get_path(directory, self.bucket.clone(), self.name.clone());
         let mut file = File::create(path)?;
         let deserialized = serde_json::to_string(self)?;
         let _ = file.write_all(&deserialized.as_bytes())?;
@@ -54,7 +54,7 @@ impl Attributes {
             },
             Err(_) => {
                 let attr = Self::new(bucket.clone(), name.clone());
-                match attr.save(directory, bucket) {
+                match attr.save(directory) {
                     Ok(_) => Ok(attr),
                     Err(e) => Err(e),
                 }
@@ -64,7 +64,7 @@ impl Attributes {
 
     /// add child
     pub fn add_child(&mut self, child: String) -> Result<()> {
-        self.children.append(&mut vec![child]);
+        self.children.insert(child);
         Ok(())
     }
 }

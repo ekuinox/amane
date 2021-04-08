@@ -68,6 +68,19 @@ pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<
     if file.write_all(&bytes).is_err() {
         return Err(anyhow!(BucketError::Internal));
     }
+
+    // ツリー状になってほしい
+    let splited = key.split('/').collect::<Vec<_>>();
+    let paths = splited.clone().into_iter().zip(splited.into_iter().skip(1)).collect::<Vec<_>>();
+    for (path, child) in paths {
+        let mut attr = Attributes::get_or_create(
+            directory.clone(),
+            bucket_name.clone(),
+            path.to_string()
+        )?;
+        let _ = attr.add_child(child.to_string())?;
+        let _ = attr.save(directory.clone())?;
+    }
     // とりあえずファイル作っとくだけ...
     let _ = Attributes::get_or_create(directory, bucket_name, key)?;
     Ok(())
