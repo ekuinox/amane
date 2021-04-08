@@ -72,6 +72,8 @@ pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<
     // ツリー状になってほしい
     let splited = key.split('/').collect::<Vec<_>>();
     let paths = splited.clone().into_iter().zip(splited.into_iter().skip(1)).collect::<Vec<_>>();
+    // TODO: これこのままだと
+    // /abc/foo/bar.jpg と /foo/bar.jpg で同じとこ指してしまう
     for (path, child) in paths {
         let mut attr = Attributes::get_or_create(
             directory.clone(),
