@@ -1,5 +1,6 @@
 use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put, web};
 use actix_multipart::Multipart;
+use regex::Regex;
 use crate::state::AppState;
 use crate::{bucket, bucket::BucketError};
 use super::response::*;
@@ -29,10 +30,27 @@ async fn get_file(
 async fn put_file(
     mut payload: Multipart,
     web::Path((bucket_name, key)): web::Path<(String, String)>,
-    data: web::Data<AppState>
+    data: web::Data<AppState>,
+    request: web::HttpRequest
 ) -> impl Responder {
     // アップロードする際のフィールドの名前
     const FILE_FIELD_NAME: &'static str = "file";
+
+    // 途中まで書いたやつ
+    let re = Regex::new("x-amn-meta-(.+)").unwrap();
+    let headers = request.headers();
+    let _users_meta = headers.into_iter()
+        .filter_map(|(name, value)| {
+            re.captures(name.as_str())
+                .and_then(|cap| cap.get(1))
+                .map(|name| (
+                    name.as_str().to_string(),
+                    value.to_str().unwrap_or("").to_string()
+                ))
+        })
+        .collect::<Vec<_>>();
+
+    println!("{:?}", _users_meta);
 
     use futures::{StreamExt, TryStreamExt};
     while let Ok(Some(field)) = payload.try_next().await {
