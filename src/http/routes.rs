@@ -33,6 +33,12 @@ async fn put_file(
     data: web::Data<AppState>,
     request: web::HttpRequest
 ) -> impl Responder {
+    // key の最後の文字が / は許せません
+    if key.chars().last() == Some('/') {
+        return HttpResponse::BadRequest()
+            .json(Response::from(Error { message: format!("Bad Request") }));
+    }
+
     // アップロードする際のフィールドの名前
     const FILE_FIELD_NAME: &'static str = "file";
 
