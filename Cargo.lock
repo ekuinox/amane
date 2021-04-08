@@ -303,6 +303,7 @@ dependencies = [
  "anyhow",
  "clap",
  "futures",
+ "regex",
  "sanitize-filename",
  "serde",
  "sha2",
