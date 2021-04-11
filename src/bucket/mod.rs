@@ -75,7 +75,7 @@ pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<
             bucket_name.clone(),
             name
         )?;
-        let _ = attr.add_child(child.to_string())?;
+        attr.add_child(child.to_string());
         let _ = attr.save(directory.clone())?;
     }
     // とりあえずファイル作っとくだけ...

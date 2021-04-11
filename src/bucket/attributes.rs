@@ -65,8 +65,11 @@ impl Attributes {
     }
 
     /// add child
-    pub fn add_child(&mut self, child: String) -> Result<()> {
+    pub fn add_child(&mut self, child: String) {
         self.children.insert(child);
-        Ok(())
+    }
+
+    pub fn add_meta(&mut self, key: String, value: String) {
+        self.meta.insert(key, value);
     }
 }
