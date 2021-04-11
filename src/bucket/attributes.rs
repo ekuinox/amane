@@ -3,6 +3,8 @@ use std::fs::File;
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
 
+/// ファイルに付属するデータを格納する
+/// `children` が子の名前だけで、パスなのかアイテムなのかは持たない -> まずいかも
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Attributes {
     bucket: String,
