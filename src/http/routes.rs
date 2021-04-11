@@ -96,6 +96,7 @@ async fn delete_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
+    // メタも削除してやらなあかん...
     match web::block(move || bucket::delete_file(data.data_directory.clone(), bucket_name, key)).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(BlockingError::Error(err)) => {
