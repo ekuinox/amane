@@ -39,6 +39,7 @@ impl Attributes {
     }
 
     /// meta from file
+    /// これファイルをロックしてくれないので、並列でやれると詰むなー...
     pub fn from_file(directory: String, bucket: String, name: String) -> Result<Self> {
         use std::io::BufReader;
         let path = Self::get_path(directory, bucket, name.clone());
@@ -72,4 +73,10 @@ impl Attributes {
     pub fn add_meta(&mut self, key: String, value: String) {
         self.meta.insert(key, value);
     }
+}
+
+pub fn is_users_meta_key(key: String) -> bool {
+    use regex::Regex;
+    let re = Regex::new("^x-amn-meta-.+").unwrap();
+    re.is_match(&key)
 }

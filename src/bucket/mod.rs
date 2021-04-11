@@ -1,9 +1,13 @@
 mod attributes;
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use attributes::Attributes;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
+
+pub use self::attributes::is_users_meta_key;
 
 #[derive(Error, Debug)]
 pub enum BucketError {
@@ -61,7 +65,13 @@ pub fn delete_file(directory: String, bucket_name: String, key: String) -> Resul
 }
 
 /// ファイルを保存する
-pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<u8>) -> Result<()> {
+/// 引数増えちゃったのどうにかしようね...
+pub fn put_file(
+    directory: String,
+    bucket_name: String,
+    key: String,
+    bytes: Vec<u8>
+) -> Result<()> {
     let filepath = get_path(&directory, &bucket_name, &key);
     let mut file = std::fs::File::create(filepath)?;
     use std::io::Write;
@@ -83,6 +93,20 @@ pub fn put_file(directory: String, bucket_name: String, key: String, bytes: Vec<
     Ok(())
 }
 
+pub fn update_meta(
+    directory: String,
+    bucket_name: String,
+    key: String,
+    meta: HashMap<String, String>
+) -> Result<()> {
+    let mut attr = Attributes::get_or_create(directory.clone(), bucket_name, key)?;
+    for (k, v) in meta {
+        attr.add_meta(k, v);
+    }
+    let _ = attr.save(directory)?;
+    Ok(())
+}
+
 /// `/` 区切りに 自身までのパスと子のパスに分解する
 fn split_path(path: String) -> Vec<(String, String)> {
     let splited = path.split('/').collect::<Vec<_>>();
@@ -95,4 +119,18 @@ fn split_path(path: String) -> Vec<(String, String)> {
         v.push((name, child.to_string()));
     }
     v
+}
+
+/// すでにファイルが存在しているか
+pub fn is_exists(
+    directory: String,
+    bucket_name: String,
+    key: String
+) -> Result<bool> {
+    let filepath = get_path(&directory, &bucket_name, &key);
+    match std::fs::File::open(filepath) {
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(anyhow!(e)),
+    }
 }

@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put, web};
 use actix_multipart::Multipart;
-use regex::Regex;
 use crate::state::AppState;
 use crate::{bucket, bucket::BucketError};
 use super::response::*;
@@ -42,21 +43,12 @@ async fn put_file(
     // アップロードする際のフィールドの名前
     const FILE_FIELD_NAME: &'static str = "file";
 
-    // 途中まで書いたやつ
-    let re = Regex::new("x-amn-meta-(.+)").unwrap();
+    // ヘッダからユーザ定義のメタ情報を取得する
     let headers = request.headers();
-    let _users_meta = headers.into_iter()
-        .filter_map(|(name, value)| {
-            re.captures(name.as_str())
-                .and_then(|cap| cap.get(1))
-                .map(|name| (
-                    name.as_str().to_string(),
-                    value.to_str().unwrap_or("").to_string()
-                ))
-        })
-        .collect::<Vec<_>>();
-
-    println!("{:?}", _users_meta);
+    let users_meta: HashMap<String, String> = headers.into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+        .filter(|(name, _)| bucket::is_users_meta_key(name.to_string()))
+        .collect();
 
     use futures::{StreamExt, TryStreamExt};
     while let Ok(Some(field)) = payload.try_next().await {
@@ -84,7 +76,10 @@ async fn put_file(
             .collect::<Vec<_>>();
 
         // ファイルを保存する
-        return match web::block(move || bucket::put_file(data.data_directory.clone(), bucket_name, key, chunks)).await {
+        return match web::block(move || {
+            let _ = bucket::put_file(data.data_directory.clone(), bucket_name.clone(), key.clone(), chunks)?;
+            bucket::update_meta(data.data_directory.clone(), bucket_name.clone(), key, users_meta)
+        }).await {
             Ok(_) => HttpResponse::Ok().finish(),
             Err(_) => HttpResponse::InternalServerError().finish(),
         };
