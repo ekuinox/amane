@@ -41,8 +41,12 @@ impl Attributes {
     /// meta from file
     /// これファイルをロックしてくれないので、並列でやれると詰むなー...
     pub fn from_file(directory: String, bucket: String, name: String) -> Result<Self> {
-        use std::io::BufReader;
         let path = Self::get_path(directory, bucket, name.clone());
+        Self::from_filepath(path)
+    }
+
+    pub fn from_filepath(path: String) -> Result<Self> {
+        use std::io::BufReader;
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let attr = serde_json::from_reader(reader)?;
@@ -72,6 +76,10 @@ impl Attributes {
 
     pub fn add_meta(&mut self, key: String, value: String) {
         self.meta.insert(key, value);
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }
 

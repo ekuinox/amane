@@ -122,6 +122,7 @@ fn split_path(path: String) -> Vec<(String, String)> {
 }
 
 /// すでにファイルが存在しているか
+#[allow(dead_code)]
 pub fn is_exists(
     directory: String,
     bucket_name: String,
@@ -133,4 +134,27 @@ pub fn is_exists(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(e) => Err(anyhow!(e)),
     }
+}
+
+/// prefix つっても read_dir でヒットするものしか拾えませ～ん
+fn get_filenames<T: AsRef<str>>(prefix: T) -> Result<Vec<String>> {
+    let filenames = std::fs::read_dir(prefix.as_ref().to_string())?
+        .flatten()
+        .map(|entry| entry.file_name().to_str().map(|name| name.to_string()))
+        .flatten()
+        .collect::<Vec<_>>();
+    Ok(filenames)
+}
+
+/// prefix で始まるファイルを検索する
+pub fn search_with_prefix(directory: String, bucket_name: String, prefix: String) -> Result<Vec<String>> {
+    let names = get_filenames(&directory)?
+        .into_iter()
+        .filter(|filename| filename.starts_with(get_hex(&bucket_name).as_str()))
+        .map(|name| format!("{}/{}", directory, name))
+        .flat_map(|name| Attributes::from_filepath(name))
+        .map(|attribute| attribute.name())
+        .filter(|name| name.starts_with(prefix.as_str()))
+        .collect::<Vec<_>>();
+    Ok(names)
 }

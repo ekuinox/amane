@@ -108,3 +108,18 @@ async fn delete_file(
         _ => HttpResponse::InternalServerError().finish(),
     }
 }
+
+#[get("/search/{bucket_name}/{prefix:.*}")]
+async fn search_files(
+    web::Path((bucket_name, prefix)): web::Path<(String, String)>,
+    data: web::Data<AppState>
+) -> impl Responder {
+    match web::block(move || bucket::search_with_prefix(data.data_directory.clone(), bucket_name, prefix)).await {
+        Ok(files) => HttpResponse::Ok()
+            .json(Response {
+                ok: true,
+                data: files,
+            }),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}

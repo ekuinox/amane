@@ -30,6 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     let server = HttpServer::new(move || App::new()
         .data(state.clone())
+        .service(search_files)
         .service(put_file)
         .service(get_file)
         .service(delete_file)
