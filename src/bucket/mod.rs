@@ -78,16 +78,6 @@ pub fn put_file(
     if file.write_all(&bytes).is_err() {
         return Err(anyhow!(BucketError::Internal));
     }
-    let paths = split_path(key.clone());
-    for (name, child) in paths {
-        let mut attr = Attributes::get_or_create(
-            directory.clone(),
-            bucket_name.clone(),
-            name
-        )?;
-        attr.add_child(child.to_string());
-        let _ = attr.save(directory.clone())?;
-    }
     // とりあえずファイル作っとくだけ...
     let _ = Attributes::get_or_create(directory, bucket_name, key)?;
     Ok(())
@@ -105,20 +95,6 @@ pub fn update_meta(
     }
     let _ = attr.save(directory)?;
     Ok(())
-}
-
-/// `/` 区切りに 自身までのパスと子のパスに分解する
-fn split_path(path: String) -> Vec<(String, String)> {
-    let splited = path.split('/').collect::<Vec<_>>();
-    let paths = splited.clone().into_iter().zip(splited.into_iter().skip(1)).collect::<Vec<_>>();
-    let mut v = vec![];
-    for (path, child) in paths {
-        let name = v.last()
-            .map(|(parent, _): &(String, String)| vec![parent.clone(), path.to_string()].join("/"))
-            .unwrap_or(path.to_string());
-        v.push((name, child.to_string()));
-    }
-    v
 }
 
 /// すでにファイルが存在しているか

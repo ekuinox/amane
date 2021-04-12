@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::fs::File;
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
@@ -9,7 +9,6 @@ use anyhow::Result;
 pub struct Attributes {
     bucket: String,
     name: String,
-    children: HashSet<String>,
     meta: HashMap<String, String>,
 }
 
@@ -18,7 +17,6 @@ impl Attributes {
         Attributes {
             bucket,
             name,
-            children: HashSet::new(),
             meta: HashMap::new(),
         }
     }
@@ -67,11 +65,6 @@ impl Attributes {
                 }
             }
         }
-    }
-
-    /// add child
-    pub fn add_child(&mut self, child: String) {
-        self.children.insert(child);
     }
 
     pub fn add_meta(&mut self, key: String, value: String) {
