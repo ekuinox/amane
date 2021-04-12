@@ -67,6 +67,13 @@ impl Attributes {
         }
     }
 
+    /// メタを削除
+    pub fn remove<T: AsRef<str>>(directory: T, bucket: T, name: T) -> Result<()> {
+        let path = Self::get_path(directory.as_ref().to_string(), bucket.as_ref().to_string(), name.as_ref().to_string());
+        let _ = std::fs::remove_file(path)?;
+        Ok(())
+    }
+
     pub fn add_meta(&mut self, key: String, value: String) {
         self.meta.insert(key, value);
     }

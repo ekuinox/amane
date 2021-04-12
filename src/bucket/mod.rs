@@ -61,6 +61,7 @@ pub fn delete_file(directory: String, bucket_name: String, key: String) -> Resul
             }
         ));
     }
+    let _ = Attributes::remove(directory, bucket_name, key)?;
     Ok(())
 }
 
