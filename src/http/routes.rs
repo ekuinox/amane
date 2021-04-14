@@ -77,7 +77,8 @@ async fn put_file(
 
         // ファイルを保存する
         return match web::block(move || {
-            let _ = bucket::put_file(data.data_directory.clone(), bucket_name.clone(), key.clone(), chunks)?;
+            let b = bucket::Bucket::new(&data.data_directory, &bucket_name);
+            let _ = b.put_object(&key, chunks)?;
             // TODO: これだとfileのデータなしではメタが更新できなくなってしまう
             bucket::update_meta(data.data_directory.clone(), bucket_name.clone(), key, users_meta)
         }).await {

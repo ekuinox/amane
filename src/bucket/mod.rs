@@ -1,4 +1,5 @@
 mod attributes;
+mod bucket;
 
 use std::collections::HashMap;
 
@@ -6,6 +7,7 @@ use anyhow::Result;
 use attributes::Attributes;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
+pub use self::bucket::Bucket;
 
 pub use self::attributes::is_users_meta_key;
 
