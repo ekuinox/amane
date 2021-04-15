@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put, web};
 use actix_multipart::Multipart;
 use crate::state::AppState;
-use crate::{bucket, bucket::BucketError};
+use crate::{bucket::Bucket, bucket::BucketError, bucket::is_users_meta_key};
 use super::response::*;
 
 /// ファイルを取得するAPI
@@ -12,7 +12,13 @@ async fn get_file(
     web::Path((bucket_name, key)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
-    match web::block(move || bucket::get_file_as_bytes(data.data_directory.clone(), bucket_name, key)).await {
+    match web::block(move || {
+        let bucket = Bucket::new(
+            &data.data_directory,
+            &bucket_name
+        );
+        bucket.get_object(&key)
+    }).await {
         Ok(bytes) => HttpResponse::Ok().body(bytes),
         Err(BlockingError::Error(err)) => {
             match err.downcast_ref::<BucketError>() {
@@ -47,7 +53,7 @@ async fn put_file(
     let headers = request.headers();
     let users_meta: HashMap<String, String> = headers.into_iter()
         .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
-        .filter(|(name, _)| bucket::is_users_meta_key(name.to_string()))
+        .filter(|(name, _)| is_users_meta_key(name.to_string()))
         .collect();
 
     use futures::{StreamExt, TryStreamExt};
@@ -77,10 +83,10 @@ async fn put_file(
 
         // ファイルを保存する
         return match web::block(move || {
-            let b = bucket::Bucket::new(&data.data_directory, &bucket_name);
-            let _ = b.put_object(&key, chunks)?;
+            let bucket = Bucket::new(&data.data_directory, &bucket_name);
+            let _ = bucket.put_object(&key, chunks)?;
             // TODO: これだとfileのデータなしではメタが更新できなくなってしまう
-            bucket::update_meta(data.data_directory.clone(), bucket_name.clone(), key, users_meta)
+            bucket.update_meta(&key, users_meta)
         }).await {
             Ok(_) => HttpResponse::Ok().finish(),
             Err(_) => HttpResponse::InternalServerError().finish(),
@@ -98,7 +104,13 @@ async fn delete_file(
     data: web::Data<AppState>
 ) -> impl Responder {
     // メタも削除してやらなあかん...
-    match web::block(move || bucket::delete_file(data.data_directory.clone(), bucket_name, key)).await {
+    match web::block(move || {
+        let bucket = Bucket::new(
+            &data.data_directory,
+            &bucket_name
+        );
+        bucket.delete_object(&key)
+    }).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(BlockingError::Error(err)) => {
             match err.downcast_ref::<BucketError>() {
@@ -115,7 +127,13 @@ async fn search_files(
     web::Path((bucket_name, prefix)): web::Path<(String, String)>,
     data: web::Data<AppState>
 ) -> impl Responder {
-    match web::block(move || bucket::search_with_prefix(data.data_directory.clone(), bucket_name, prefix)).await {
+    match web::block(move || {
+        let bucket = Bucket::new(
+            &data.data_directory,
+            &bucket_name
+        );
+        bucket.list_objects(&prefix)
+    }).await {
         Ok(files) => HttpResponse::Ok()
             .json(Response {
                 ok: true,

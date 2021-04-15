@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use anyhow::Result;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
@@ -24,6 +25,16 @@ impl <'a> Bucket<'a> {
         hasher.update(sanitize_filename::sanitize(value));
         let hashed = hasher.finalize();
         hashed.iter().map(|c| format!("{:02x}", c)).collect()
+    }
+
+    /// prefix つっても read_dir でヒットするものしか拾えませ～ん
+    fn get_filenames(prefix: &'a str) -> Result<Vec<String>> {
+        let filenames = std::fs::read_dir(prefix)?
+            .flatten()
+            .map(|entry| entry.file_name().to_str().map(|name| name.to_string()))
+            .flatten()
+            .collect::<Vec<_>>();
+        Ok(filenames)
     }
 
     pub fn new(directory: &'a str, bucket_name: &'a str) -> Bucket<'a> {
@@ -55,9 +66,9 @@ impl <'a> Bucket<'a> {
         Ok(bytes)
     }
 
+    /// オブジェクトを作成（更新）
     pub fn put_object(&self, key: &'a str, bytes: Vec<u8>) -> Result<()> {
-        let a = key.as_ref();
-        let path = self.get_path(a);
+        let path = self.get_path(key);
         let mut file = std::fs::File::create(path)?;
         use std::io::Write;
         if file.write_all(&bytes).is_err() {
@@ -69,7 +80,66 @@ impl <'a> Bucket<'a> {
             self.bucket_name.to_string(),
             key.to_string()
         )?;
-        
         Ok(())
+    }
+
+    /// オブジェクトを削除
+    pub fn delete_object(&self, key: &'a str) -> Result<()> {
+        let path = self.get_path(key);
+        if let Err(err) = std::fs::remove_file(path) {
+            use std::io::ErrorKind;
+            return Err(anyhow!(
+                if err.kind() == ErrorKind::NotFound {
+                    BucketError::NotFound
+                } else {
+                    BucketError::Internal
+                }
+            ));
+        }
+        let _ = Attributes::remove(
+            self.directory.to_string(),
+            self.bucket_name.to_string(),
+            key.to_string()
+        )?;
+        Ok(())        
+    }
+
+    /// メタデータを更新
+    pub fn update_meta(&self, key: &'a str, meta: HashMap<String, String>) -> Result<()> {
+        let mut attr = Attributes::get_or_create(
+            self.directory.to_string(),
+            self.bucket_name.to_string(),
+            key.to_string())?;
+        for (k, v) in meta {
+            attr.add_meta(k, v);
+        }
+        let _ = attr.save(self.directory.to_string())?;
+        Ok(())
+    }
+
+    /// オブジェクトの一覧を取得
+    pub fn list_objects(&self, prefix: &'a str) -> Result<Vec<String>> {
+        let names = Self::get_filenames(&prefix)?
+            .into_iter()
+            .filter(|filename|
+                filename.starts_with(Self::get_hex(&self.bucket_name).as_str())
+            )
+            .map(|name| format!("{}/{}", self.directory, name))
+            .flat_map(|name| Attributes::from_filepath(name))
+            .map(|attribute| attribute.name())
+            .filter(|name| name.starts_with(prefix))
+            .collect::<Vec<_>>();
+        Ok(names)
+    }
+
+    /// すでにファイルが存在しているか
+    #[allow(dead_code)]
+    pub fn is_exists(&self, key: String) -> Result<bool> {
+        let path = self.get_path(&key);
+        match std::fs::File::open(path) {
+            Ok(_) => Ok(true),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 }
