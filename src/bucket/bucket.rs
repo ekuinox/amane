@@ -12,7 +12,9 @@ pub enum BucketError {
     Internal,
 }
 
+#[derive(Clone, Debug)]
 pub struct Bucket<'a> {
+    // 保存先複数とかにできるようにはしたいから、このままは嫌かも~！
     directory: &'a str,
     bucket_name: &'a str,
 }
