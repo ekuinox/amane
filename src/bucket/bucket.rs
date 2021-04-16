@@ -45,14 +45,20 @@ impl <'a> Bucket<'a> {
         format!("{}_{}", bucket_name, key)
     }
 
-    pub fn get_object(&self, key: &'a str) -> Result<Vec<u8>> {
+    pub fn get_object(&self, key: &'a str) -> Result<(Vec<u8>, Attributes)> {
         let path = self.get_path(key);
         let reader = self.accessor.get_reader(&path);
         let bytes = match reader.read() {
             Ok(bytes) => bytes,
             Err(_) => return Err(anyhow!(BucketError::NotFound)),
         };
-        Ok(bytes)
+        let attr_path = Attributes::get_path(&path);
+        let reader = self.accessor.get_reader(&attr_path);
+        let attr: Attributes = match reader.read() {
+            Ok(bytes) => bytes.try_into()?,
+            Err(_) => return Err(anyhow!(BucketError::Internal)),
+        };
+        Ok((bytes, attr))
     }
 
     /// オブジェクトを作成（更新）

@@ -21,7 +21,14 @@ async fn get_file(
         );
         bucket.get_object(&key)
     }).await {
-        Ok(bytes) => HttpResponse::Ok().body(bytes),
+        Ok((bytes, attr)) => {
+            let mut response = HttpResponse::Ok();
+            // メタをそのままヘッダに付け加える
+            for (key, value) in attr.meta() {
+                response.set_header(key, value.clone());
+            }
+            response.body(bytes)
+        },
         Err(BlockingError::Error(err)) => {
             match err.downcast_ref::<BucketError>() {
                 Some(BucketError::NotFound) => HttpResponse::NotFound()

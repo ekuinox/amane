@@ -32,6 +32,10 @@ impl Attributes {
     pub fn name(&self) -> String {
         self.name.clone()
     }
+
+    pub fn meta(&self) -> &HashMap<String, String> {
+        &self.meta
+    }
 }
 
 impl TryFrom<Vec<u8>> for Attributes {
