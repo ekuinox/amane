@@ -1,5 +1,6 @@
 mod attributes;
 mod bucket;
+mod accessor;
 
 use sha2::{Sha256, Digest};
 pub use self::bucket::{Bucket, BucketError};
