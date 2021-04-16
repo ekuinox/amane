@@ -8,7 +8,7 @@ use super::{Accessor, attributes::Attributes};
 pub enum BucketError {
     #[error("file not found")]
     NotFound,
-    #[error("internal error")] 
+    #[error("internal error")]
     Internal,
 }
 
