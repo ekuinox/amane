@@ -1,4 +1,6 @@
-# request_image_file
+===
+request_image_file
+===
 
 Amaneサーバにリクエストするだけのサンプル
 
