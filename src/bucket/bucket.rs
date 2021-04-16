@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
-use super::attributes::Attributes;
+use super::{Accessor, attributes::Attributes};
 
 #[derive(Error, Debug)]
 pub enum BucketError {
@@ -16,6 +16,7 @@ pub enum BucketError {
 pub struct Bucket<'a> {
     // 保存先複数とかにできるようにはしたいから、このままは嫌かも~！
     directory: &'a str,
+    accessor: Accessor<'a>,
     bucket_name: &'a str,
 }
 
@@ -39,8 +40,8 @@ impl <'a> Bucket<'a> {
         Ok(filenames)
     }
 
-    pub fn new(directory: &'a str, bucket_name: &'a str) -> Bucket<'a> {
-        Bucket { directory, bucket_name }
+    pub fn new(accessor: Accessor<'a>, directory: &'a str, bucket_name: &'a str) -> Bucket<'a> {
+        Bucket { accessor, directory, bucket_name }
     }
 }
 

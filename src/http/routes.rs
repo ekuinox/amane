@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use actix_web::{HttpResponse, Responder, delete, error::BlockingError, get, put, web};
 use actix_multipart::Multipart;
-use crate::state::AppState;
+use crate::{bucket::Accessor, state::AppState};
 use crate::{bucket::Bucket, bucket::BucketError, bucket::is_users_meta_key};
 use super::response::*;
 
@@ -13,7 +13,9 @@ async fn get_file(
     data: web::Data<AppState>
 ) -> impl Responder {
     match web::block(move || {
+        let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
+            accessor,
             &data.data_directory,
             &bucket_name
         );
@@ -83,7 +85,12 @@ async fn put_file(
 
         // ファイルを保存する
         return match web::block(move || {
-            let bucket = Bucket::new(&data.data_directory, &bucket_name);
+            let accessor = Accessor::new(&data.data_directory);
+            let bucket = Bucket::new(
+                accessor,
+                &data.data_directory,
+                &bucket_name
+            );
             let _ = bucket.put_object(&key, chunks)?;
             // TODO: これだとfileのデータなしではメタが更新できなくなってしまう
             bucket.update_meta(&key, users_meta)
@@ -105,7 +112,9 @@ async fn delete_file(
 ) -> impl Responder {
     // メタも削除してやらなあかん...
     match web::block(move || {
+        let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
+            accessor,
             &data.data_directory,
             &bucket_name
         );
@@ -128,7 +137,9 @@ async fn search_files(
     data: web::Data<AppState>
 ) -> impl Responder {
     match web::block(move || {
+        let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
+            accessor,
             &data.data_directory,
             &bucket_name
         );

@@ -5,6 +5,7 @@ mod accessor;
 use sha2::{Sha256, Digest};
 pub use self::bucket::{Bucket, BucketError};
 pub use self::attributes::is_users_meta_key;
+pub use self::accessor::*;
 
 /// 文字列をハッシュ化して16進数文字列にする
 fn get_hex(value: &String) -> String {
