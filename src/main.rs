@@ -11,7 +11,8 @@ use state::AppState;
 
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
-    let matches = clap::App::new(clap::crate_name!())
+    use clap::{crate_authors, crate_name, crate_version, crate_description};
+    let matches = clap::app_from_crate!()
         .args(&[
             clap::Arg::with_name("bind")
                 .takes_value(true)
