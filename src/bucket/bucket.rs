@@ -30,16 +30,6 @@ impl <'a> Bucket<'a> {
         hashed.iter().map(|c| format!("{:02x}", c)).collect()
     }
 
-    /// prefix つっても read_dir でヒットするものしか拾えませ～ん
-    fn get_filenames(prefix: &'a str) -> Result<Vec<String>> {
-        let filenames = std::fs::read_dir(prefix)?
-            .flatten()
-            .map(|entry| entry.file_name().to_str().map(|name| name.to_string()))
-            .flatten()
-            .collect::<Vec<_>>();
-        Ok(filenames)
-    }
-
     pub fn new(accessor: Accessor<'a>, directory: &'a str, bucket_name: &'a str) -> Bucket<'a> {
         Bucket { accessor, directory, bucket_name }
     }
@@ -52,29 +42,24 @@ impl <'a> Bucket<'a> {
         let bucket_name = Self::get_hex(&self.bucket_name);
         let key = Self::get_hex(&key);
         // とりあえずアンスコで繋げているが良いとは思えない...
-        format!("{}/{}_{}", self.directory, bucket_name, key)
+        format!("{}_{}", bucket_name, key)
     }
 
     pub fn get_object(&self, key: &'a str) -> Result<Vec<u8>> {
-        use std::io::Read;
         let path = self.get_path(key);
-        let mut file = match std::fs::File::open(path) {
-            Ok(f) => f,
+        let reader = self.accessor.get_reader(&path);
+        let bytes = match reader.read() {
+            Ok(bytes) => bytes,
             Err(_) => return Err(anyhow!(BucketError::NotFound)),
         };
-        let mut bytes = Vec::new();
-        if let Err(_) = file.read_to_end(&mut bytes) {
-            return Err(anyhow!(BucketError::Internal));
-        }
         Ok(bytes)
     }
 
     /// オブジェクトを作成（更新）
     pub fn put_object(&self, key: &'a str, bytes: Vec<u8>) -> Result<()> {
         let path = self.get_path(key);
-        let mut file = std::fs::File::create(path)?;
-        use std::io::Write;
-        if file.write_all(&bytes).is_err() {
+        let writer = self.accessor.get_writer(&path);
+        if writer.write(bytes).is_err() {
             return Err(anyhow!(BucketError::Internal));
         }
         // とりあえずファイル作っとくだけ...
@@ -89,16 +74,8 @@ impl <'a> Bucket<'a> {
     /// オブジェクトを削除
     pub fn delete_object(&self, key: &'a str) -> Result<()> {
         let path = self.get_path(key);
-        if let Err(err) = std::fs::remove_file(path) {
-            use std::io::ErrorKind;
-            return Err(anyhow!(
-                if err.kind() == ErrorKind::NotFound {
-                    BucketError::NotFound
-                } else {
-                    BucketError::Internal
-                }
-            ));
-        }
+        let writer = self.accessor.get_writer(&path);
+        let _ = writer.remove()?; // 今考えんのめんどい
         let _ = Attributes::remove(
             self.directory.to_string(),
             self.bucket_name.to_string(),
@@ -122,7 +99,7 @@ impl <'a> Bucket<'a> {
 
     /// オブジェクトの一覧を取得
     pub fn list_objects(&self, prefix: &'a str) -> Result<Vec<String>> {
-        let names = Self::get_filenames(&prefix)?
+        let names = self.accessor.get_filenames()?
             .into_iter()
             .filter(|filename|
                 filename.starts_with(Self::get_hex(&self.bucket_name).as_str())
@@ -133,16 +110,5 @@ impl <'a> Bucket<'a> {
             .filter(|name| name.starts_with(prefix))
             .collect::<Vec<_>>();
         Ok(names)
-    }
-
-    /// すでにファイルが存在しているか
-    #[allow(dead_code)]
-    pub fn is_exists(&self, key: String) -> Result<bool> {
-        let path = self.get_path(&key);
-        match std::fs::File::open(path) {
-            Ok(_) => Ok(true),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(e) => Err(anyhow!(e)),
-        }
     }
 }
