@@ -1,6 +1,7 @@
 use anyhow::Result;
 use std::fs::File;
 
+/// 格納先へのアクセスを提供する
 #[derive(Clone, Debug)]
 pub struct Accessor<'a> {
     directory: &'a str,
@@ -11,14 +12,17 @@ impl <'a, 'b> Accessor<'a> {
         Accessor { directory }
     }
 
+    /// パスを取得する
     fn get_path(&self, path: &'b str) -> String {
         format!("{}/{}", self.directory, path)
     }
 
+    /// 読み取り権限で取得する
     pub fn get_reader(&self, path: &'b str) -> Reader {
         Reader::new(self.get_path(path))
     }
 
+    /// 書き込み権限で取得する
     pub fn get_writer(&self, path: &'b str) -> Writer {
         Writer::new(self.get_path(path))
     }
@@ -33,6 +37,7 @@ impl <'a, 'b> Accessor<'a> {
         }
     }
 
+    /// 格納されているファイル名を一覧で取得する
     pub fn get_filenames(&self) -> Result<Vec<String>> {
         let filenames = std::fs::read_dir(self.directory)?
             .flatten()
