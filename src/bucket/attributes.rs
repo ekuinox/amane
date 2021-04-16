@@ -1,5 +1,4 @@
-use std::collections::{HashMap};
-use std::fs::File;
+use std::{collections::{HashMap}, convert::TryFrom};
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
 
@@ -22,56 +21,8 @@ impl Attributes {
     }
 
     /// パスを取得する
-    fn get_path(directory: String, bucket: String, name: String) -> String {
-        format!("{}.json", super::get_path(&directory, &bucket, &name))
-    }
-
-    /// save meta
-    pub fn save(&self, directory: String) -> Result<()> {
-        use std::io::Write;
-        let path = Self::get_path(directory, self.bucket.clone(), self.name.clone());
-        let mut file = File::create(path)?;
-        let deserialized = serde_json::to_string(self)?;
-        let _ = file.write_all(&deserialized.as_bytes())?;
-        Ok(())
-    }
-
-    /// meta from file
-    /// これファイルをロックしてくれないので、並列でやれると詰むなー...
-    pub fn from_file(directory: String, bucket: String, name: String) -> Result<Self> {
-        let path = Self::get_path(directory, bucket, name.clone());
-        Self::from_filepath(path)
-    }
-
-    pub fn from_filepath(path: String) -> Result<Self> {
-        use std::io::BufReader;
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
-        let attr = serde_json::from_reader(reader)?;
-        Ok(attr)
-    }
-
-    /// get or new from file
-    pub fn get_or_create(directory: String, bucket: String, name: String) -> Result<Self> {
-        match Self::from_file(directory.clone(), bucket.clone(), name.clone()) {
-            Ok(a) => {
-                return Ok(a);
-            },
-            Err(_) => {
-                let attr = Self::new(bucket.clone(), name.clone());
-                match attr.save(directory) {
-                    Ok(_) => Ok(attr),
-                    Err(e) => Err(e),
-                }
-            }
-        }
-    }
-
-    /// メタを削除
-    pub fn remove<T: AsRef<str>>(directory: T, bucket: T, name: T) -> Result<()> {
-        let path = Self::get_path(directory.as_ref().to_string(), bucket.as_ref().to_string(), name.as_ref().to_string());
-        let _ = std::fs::remove_file(path)?;
-        Ok(())
+    pub fn get_path<'a>(object_path: &'a str) -> String {
+        format!("{}.json", object_path)
     }
 
     pub fn add_meta(&mut self, key: String, value: String) {
@@ -80,6 +31,21 @@ impl Attributes {
 
     pub fn name(&self) -> String {
         self.name.clone()
+    }
+}
+
+impl TryFrom<Vec<u8>> for Attributes {
+    type Error = serde_json::error::Error;
+    /// バイト列から読み込む
+    fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
+        serde_json::from_slice(&bytes)
+    }
+}
+
+impl TryFrom<Attributes> for Vec<u8> {
+    type Error = serde_json::error::Error;
+    fn try_from(value: Attributes) -> Result<Self, Self::Error> {
+        serde_json::to_vec(&value)
     }
 }
 

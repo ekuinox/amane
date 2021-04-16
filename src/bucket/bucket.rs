@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::{TryFrom, TryInto}};
 use anyhow::Result;
 use sha2::{Sha256, Digest};
 use thiserror::Error;
@@ -8,7 +8,7 @@ use super::{Accessor, attributes::Attributes};
 pub enum BucketError {
     #[error("file not found")]
     NotFound,
-    #[error("internal error")]
+    #[error("internal error")] 
     Internal,
 }
 
@@ -57,55 +57,78 @@ impl <'a> Bucket<'a> {
 
     /// オブジェクトを作成（更新）
     pub fn put_object(&self, key: &'a str, bytes: Vec<u8>) -> Result<()> {
+        // オブジェクト本体の保存
         let path = self.get_path(key);
         let writer = self.accessor.get_writer(&path);
-        if writer.write(bytes).is_err() {
-            return Err(anyhow!(BucketError::Internal));
-        }
-        // とりあえずファイル作っとくだけ...
-        let _ = Attributes::get_or_create(
-            self.directory.to_string(),
-            self.bucket_name.to_string(),
-            key.to_string()
-        )?;
+        let _ = writer.write(bytes)?;
+
+        // 付属情報の保存
+        // 新規になってしまっているのでやばいかも！
+        let attr = Attributes::new(self.bucket_name.to_string(), key.to_string());
+        let attr_path = Attributes::get_path(&path);
+        let bytes: Vec<u8> = attr.try_into()?;
+        let writer = self.accessor.get_writer(&attr_path);
+        let _ = writer.write(bytes)?;
+
         Ok(())
     }
 
     /// オブジェクトを削除
     pub fn delete_object(&self, key: &'a str) -> Result<()> {
+        // オブジェクトの削除
         let path = self.get_path(key);
         let writer = self.accessor.get_writer(&path);
         let _ = writer.remove()?; // 今考えんのめんどい
-        let _ = Attributes::remove(
-            self.directory.to_string(),
-            self.bucket_name.to_string(),
-            key.to_string()
-        )?;
+
+        // 付属情報の削除
+        let attr_path = Attributes::get_path(&path);
+        let writer = self.accessor.get_writer(&attr_path);
+        let _ = writer.remove()?;
+
         Ok(())        
     }
 
     /// メタデータを更新
     pub fn update_meta(&self, key: &'a str, meta: HashMap<String, String>) -> Result<()> {
-        let mut attr = Attributes::get_or_create(
-            self.directory.to_string(),
-            self.bucket_name.to_string(),
-            key.to_string())?;
+        let path = self.get_path(key);
+        let attr_path = Attributes::get_path(&path);
+        let reader = self.accessor.get_reader(&attr_path);
+        let mut attr = match reader.read() {
+            Ok(bytes) => Attributes::try_from(bytes)?, // 取れないとか意味わからん
+            Err(_) => Attributes::new(self.bucket_name.to_string(), key.to_string()),
+        };
         for (k, v) in meta {
             attr.add_meta(k, v);
         }
-        let _ = attr.save(self.directory.to_string())?;
+        
+        // 変更したものを書き込む
+        let bytes: Vec<u8> = attr.try_into()?;
+        let writer = self.accessor.get_writer(&attr_path);
+        let _ = writer.write(bytes)?;
+
         Ok(())
     }
 
     /// オブジェクトの一覧を取得
     pub fn list_objects(&self, prefix: &'a str) -> Result<Vec<String>> {
+        // バケット名が一致するもののファイル名を一覧取得する
         let names = self.accessor.get_filenames()?
             .into_iter()
             .filter(|filename|
                 filename.starts_with(Self::get_hex(&self.bucket_name).as_str())
-            )
-            .map(|name| format!("{}/{}", self.directory, name))
-            .flat_map(|name| Attributes::from_filepath(name))
+            );
+        // 付属情報に変換する
+        let attrs = names.into_iter()
+            .map(|name| Attributes::get_path(&name))
+            .filter_map(|path| {
+                let reader = self.accessor.get_reader(&path);
+                match reader.read() {
+                    Ok(bytes) => Attributes::try_from(bytes).ok(),
+                    _ => None
+                }
+            });
+        // マッチする名前で検索する
+        let names = attrs
             .map(|attribute| attribute.name())
             .filter(|name| name.starts_with(prefix))
             .collect::<Vec<_>>();
