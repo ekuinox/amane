@@ -15,7 +15,6 @@ pub enum BucketError {
 #[derive(Clone, Debug)]
 pub struct Bucket<'a> {
     // 保存先複数とかにできるようにはしたいから、このままは嫌かも~！
-    directory: &'a str,
     accessor: Accessor<'a>,
     bucket_name: &'a str,
 }
@@ -30,8 +29,8 @@ impl <'a> Bucket<'a> {
         hashed.iter().map(|c| format!("{:02x}", c)).collect()
     }
 
-    pub fn new(accessor: Accessor<'a>, directory: &'a str, bucket_name: &'a str) -> Bucket<'a> {
-        Bucket { accessor, directory, bucket_name }
+    pub fn new(accessor: Accessor<'a>, bucket_name: &'a str) -> Bucket<'a> {
+        Bucket { accessor, bucket_name }
     }
 }
 

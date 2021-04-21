@@ -16,7 +16,6 @@ async fn get_file(
         let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
             accessor,
-            &data.data_directory,
             &bucket_name
         );
         bucket.get_object(&key)
@@ -95,7 +94,6 @@ async fn put_file(
             let accessor = Accessor::new(&data.data_directory);
             let bucket = Bucket::new(
                 accessor,
-                &data.data_directory,
                 &bucket_name
             );
             let _ = bucket.put_object(&key, chunks)?;
@@ -122,7 +120,6 @@ async fn delete_file(
         let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
             accessor,
-            &data.data_directory,
             &bucket_name
         );
         bucket.delete_object(&key)
@@ -147,7 +144,6 @@ async fn search_files(
         let accessor = Accessor::new(&data.data_directory);
         let bucket = Bucket::new(
             accessor,
-            &data.data_directory,
             &bucket_name
         );
         bucket.list_objects(&prefix)
